@@ -30,6 +30,17 @@ recharge_stats as (
     ) t
     join users u on t.user_id = u.user_id
     group by u.channel
+),
+retention_stats as (
+    select
+        u.channel,
+        count(distinct case 
+            when datediff(date(ll.login_date), date(u.install_date)) = 1 then u.user_id 
+        end) as d1_retained_users
+    from users u
+    left join login_log ll on u.user_id = ll.user_id
+    where u.activated = 1
+    group by u.channel
 )
 select 
     b.channel as 渠道, 
@@ -61,11 +72,13 @@ select
     round(ifnull(rv.revenue_7, 0) / b.total_installs, 4) as LTV_7,   
     round(ifnull(rv.revenue_30, 0) / b.total_installs, 4) as LTV_30,
    
-    round(ifnull(rp.repeat_payers, 0) * 1.0 / nullif(rv.paying_users, 0), 4) as 复充率
+    round(ifnull(rp.repeat_payers, 0) * 1.0 / nullif(rv.paying_users, 0), 4) as 复充率,
+	round(ifnull(rt.d1_retained_users, 0) * 1.0 / nullif(b.active_users, 0), 4) as 次日留存率
 
 from base_stats b 
 left join revenue_stats rv on b.channel = rv.channel
-left join recharge_stats rp on b.channel = rp.channel;
+left join recharge_stats rp on b.channel = rp.channel
+left join retention_stats rt on b.channel = rt.channel;
 
 
 -- ======================
